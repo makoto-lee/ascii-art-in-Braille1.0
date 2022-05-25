@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        :root {
+            --button-height: 2px;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        code {
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        .button {
+            border: 0;
+            border-radius: 3px;
+            transition-duration: 0.075s;
+            transform: translateY(calc(-1 * var(--button-height)));
+            box-shadow: 0px calc(2px + var(--button-height)) #505050,
+                0px calc(2px + var(--button-height)) 0px 2px #50505050;
+        }
+
+        .button:hover {
+            background-color: azure;
+        }
+
+        .button:active {
+            transform: translateY(0px);
+            box-shadow: 0px 2px #505050,
+                0px 2px 0px 2px #50505050;
+        }
+
+        .func-button {
+            margin-top: 20px;
+            width: 130px;
+            height: 40px;
+        }
+
+        #more {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+        }
+
+        #more-funcs {
+            position: fixed;
+            text-align: center;
+            background-color: rgb(206, 206, 206);
+            width: 200px;
+            height: 200px;
+            top: 100px;
+            margin-left: -100px;
+            transition-duration: 0.75s;
+            border-radius: 0px 5px 5px 0px;
+            border-color: black;
+            border-style: solid;
+            border-width: 3px;
+        }
+
+        #copy-sign {
+            position: fixed;
+            width: 80px;
+            height: 30px;
+            text-align: center;
+            font-size: 20px;
+
+            margin-top: -40px;
+            left: 50%;
+            transform: translate(-50%, 0%);
+
+            background-color: rgb(205, 243, 255);
+            box-shadow: 4px 4px #9ac3d6;
+            border-radius: 4px;
+
+        }
+    </style>
+</head>
+
+<body>
+    <div id="more" onclick="morefunc()">
+        <button class="button" style="width: 50px; height: 50px;">模式</button>
+    </div>
+    <div id="more-funcs">
+        <button class="button func-button">圖片模式</button>
+        <br>
+        <button class="button func-button" onclick="window.location.href='camera-to-Braille.html';">相機模式</button>
+        <br>
+        <button class="button func-button">coming soon</button>
+    </div>
+
+    <div id="copy-sign">已複製</div>
+
+    <div style="text-align:center;">
+        <input type="file" onchange="previewFile()">
+        <br>
+        <img id="target-img" src="" alt="Image preview...">
+        <br>
+        <label> 黑白分隔標準 </label>
+        <input id="input-range" type="range" min="0" max="255" onchange="changeBound()">
+        <br>
+        <label title="數值越大輸出越小，但也越不明顯">像素採樣大小</label>
+        <input id="input-dpi" type="text" maxlength="2" size="2">
+        <button class="button" onclick="DPIup()">▲</button>
+        <button class="button" onclick="DPIdown()">▼</button>
+        <br>
+        <label> 黑白互換 </label>
+        <input type="checkbox" id="reverse" onchange="changeColor()">
+        <br>
+        <button class="button" style="width: 100px; height: 50px; font-size: 20px;" onclick="execute()">執行</button>
+        <button class="button" style="width: 100px; height: 50px; font-size: 20px;" onclick="copy()">複製</button>
+        <br>
+        <br>
+        <pre><code id="output-text">⠊⠂⠰⣰⣰⠐⠑</code></pre>
+    </div>
+</body>
+
+<!-- scripts for ascii art -->
+<script src="ascii-art.js"></script>
+
+<!-- scripts for executing -->
+<script>
+    document.getElementById("input-dpi").defaultValue = "1";
+
+    let state = 1;
+    const hide_width = "-190px";
+    const unhide_width = "-3px";
+
+    const more_funcs = document.getElementById("more-funcs");
+    function morefunc() {
+        more_funcs.style.marginLeft = state ? hide_width : unhide_width;
+        state = 1 - state;
+    }
+    morefunc();
+
+    function previewFile() {
+        const preview = document.getElementById('target-img');
+        const file = document.querySelector('input[type=file]').files[0];
+        const reader = new FileReader();
+
+        reader.addEventListener("load", function () {
+            // convert image file to base64 string
+            preview.src = reader.result;
+        }, false);
+
+        if (file) {
+            reader.readAsDataURL(file);
+        }
+    }
+
+    const img = document.getElementById('target-img');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext("2d");
+    const DPIMAX = 99;
+    const DPIMIN = 1;
+    var black_white_bound = 125;
+    var dpi = 1;
+
+    function execute() {
+
+        if (img.getAttribute("src") != "") {
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+            let pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            const img_buf = imageDataTo3DArray(pixels, canvas.width, canvas.height);
+            const img_buf_gray = toGrayScale2DArray(img_buf, canvas.width, canvas.height);
+
+
+            console.log(canvas.width)
+            console.log(canvas.height)
+
+            let output_textarea = document.getElementById('output-text');
+            output_textarea.textContent = getBrailleString(img_buf_gray, canvas.height, canvas.width, dpi);
+        }
+    }
+
+    function changeBound() {
+        const bar = document.getElementById("input-range");
+        black_white_bound = bar.value;
+        console.log(bar.value);
+    }
+
+    function DPIup() {
+        if (dpi < DPIMAX) {
+            let show = document.getElementById("input-dpi");
+            dpi++;
+            show.value = dpi.toString();
+        }
+    }
+
+    function DPIdown() {
+        if (dpi > DPIMIN) {
+            let show = document.getElementById("input-dpi");
+            dpi--;
+            show.value = dpi.toString();
+        }
+    }
+
+    function changeColor() {
+        reverse = 1 - reverse;
+
+        console.log(reverse);
+        execute();
+    }
+
+    const copy_sign = document.getElementById("copy-sign");
+    function copy() {
+        let output = document.getElementById("output-text");
+        window.getSelection().selectAllChildren(output);
+        document.execCommand("Copy")
+        copy_sign.animate(
+            [
+                { marginTop: "-40px" },
+                { marginTop: "30px" },
+                { marginTop: "30px" },
+                { marginTop: "-40px" }
+            ],
+            {
+                duration: 2000,
+                easing: "cubic-bezier(.27,.88,.26,1.01)"
+
+            });
+    }
+    /*
+    var test = [[0, 0, 255, 255],
+    [0, 0, 255, 255],
+    [255, 255, 255, 255],
+    [255, 255, 255, 255],
+    [255, 255, 0, 0],
+    [255, 255, 0, 0],
+    [255, 255, 255, 255],
+    [255, 255, 255, 255]];
+
+    console.log(getBrailleChar(test, 8, 4));
+
+    console.log(getBrailleString(test, 8, 4, 1));
+    */
+    //setInterval(execute, 50);
+
+
+</script>
+
+<!--
+⣿⣿⣿⣿⣿⣿⠝⢀⣮⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡘⢧⣿⣿⣿⣿⣻⡀⠧
+⣿⣿⣿⣿⣿⠝⢠⣾⣿⣿⣿⣿⣿⣿⠝⣿⣿⣿⣿⣿⣿⣿⣿⣿⡘⢠⡄⠷⣿⣿⣿⣹⠗⠗⠿⣿⣿⣿⡙⢤⠷⣿⣿⣿⣿⣻⡈
+⣿⣿⣿⣿⠝⢠⣿⣿⣿⣿⣿⣿⣿⡿⢀⢦⣿⣿⣿⣿⣿⣿⣿⣿⣻⠆⣿⣻⣌⡇⢿⣿⣹⠣⣸⣄⠇⢿⡙⢦⣘⣌⡇⢿⣿⣿⣻
+⣿⣿⣿⡝⠁⣾⣿⣿⣿⣿⣿⣿⣿⠙⣿⡌⣿⣿⣿⣿⣿⣿⣿⣿⣿⡈⢿⣿⣿⣿⣸⡇⢿⣹⠧⡿⣿⣸⠁⠦⣿⡎⠷⢸⣍⠷⢿
+⣿⣿⣿⠁⠦⣿⣿⣿⠝⡧⢷⣿⡿⢢⣿⣻⠆⣿⣿⣿⣿⣿⣿⣿⣿⣙⢦⡿⠗⠗⠅⠅⠁⠅⠁⠁⢧⣿⠁⣺⣌⠃⠦⣺⣬⡳⢸
+⣿⣿⡙⠁⡘⠧⣿⡝⢢⡙⢦⣿⡙⣦⣿⣿⣹⡆⣿⣿⣽⠷⣿⣿⣿⣿⠄⣻⣺⣺⠟⠕⠇⠷⣻⡀⠄⡿⠁⣿⣿⣹⡀⢷⣿⣿⣸
+⣟⣿⡙⢦⣿⡈⠗⢀⣿⡙⠄⣿⠁⣿⣿⣿⠿⢻⣌⠷⣿⡈⣌⠷⣿⣿⠁⣿⣿⡝⢠⣨⠁⠁⠄⣿⣸⠁⣦⣿⣿⣿⣿⡄⣿⣿⣿
+⣿⣿⡙⢦⣿⣿⠁⠦⣿⡙⢱⠧⠁⠟⢕⣠⣪⣾⣿⣻⣌⠳⠆⣻⣌⡷⠙⢷⣿⡙⠦⠟⠁⠁⠁⢦⣿⡙⣿⣿⣿⣿⣿⣙⢦⣿⣿
+⣿⣿⡙⢦⣿⡿⢠⣈⠧⣙⢦⡐⢀⣪⠟⠅⠅⠇⢿⣿⣿⣻⣸⣦⣿⣿⣸⣮⣿⣙⠁⢠⣪⣸⡀⢦⣿⣹⢦⣿⣿⣿⣿⣿⠁⣿⣿
+⣿⣿⡙⢦⡟⠁⢦⣿⣘⠇⠄⣻⣮⡝⢢⣺⠁⠁⠁⢷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣘⠆⠿⠟⢁⣾⣿⣿⠆⣿⣿⣿⣿⣿⡘⣿⡟
+⣿⣿⣻⠄⡙⠁⢿⣿⣿⣻⣘⢧⣿⡙⠆⠕⠁⠁⠁⢦⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣻⣺⣺⣿⣿⣿⣿⡀⣿⣿⣿⣿⣿⡙⠄⠁
+⣿⣿⣿⡘⠁⢀⠄⣿⣿⣿⡏⠘⢷⣹⠁⢢⣿⣿⠘⢦⣿⣿⣿⣿⣿⡟⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡙⣿⣿⣿⣿⣿⡙⣠⡘
+⣿⣿⣿⣿⡀⢦⣹⠆⣿⣿⣻⠁⡄⢿⣻⣈⣅⣁⣪⣿⣿⣿⣿⣿⣿⠁⣸⡇⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠙⢧⣿⣿⣿⣿⢁⣿⣿
+⣿⣿⣿⣿⣻⡄⣿⣻⠄⢿⣿⡘⢷⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⣿⣻⡈⠷⣿⣿⣿⣿⣿⣿⡿⢁⠁⣾⣿⣿⣿⠝⣦⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣙⠠⣷⣻⡆⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡙⢅⣥⣨⣺⣿⣿⣿⡿⠟⢁⣪⣿⠁⣿⣿⣿⡟⠢⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⡈⢧⣿⣹⡆⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣽⠁⣾⣿⣿⠝⢢⠝⣾⠝⣠⡈⢷⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣈⠧⣿⣿⢺⣨⣍⣅⡗⠗⣗⣗⣗⣅⣅⣥⡍⢧⣿⣿⣿⣿⣿⣈⣄⠅⠅⠁⠁⠁⠁⠁⠗⠓⠁⠷⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣹⡄⢿⡘⢄⠗⠿⣿⡈⢷⣿⣿⣿⣿⠟⢑⣦⣿⣿⣿⣿⣿⣿⠝⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁
+-->
+
+
+</html>
